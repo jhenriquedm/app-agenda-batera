@@ -2,85 +2,77 @@
 
 Aplicativo completo para agendamento de shows, controle financeiro de cachês e gestão de apresentações para bateristas e músicos freelancers.
 
-Disponível tanto na Web (PWA responsivo) quanto como aplicativo nativo **Android (APK)** compilado via Capacitor e GitHub Actions.
+Disponível tanto na Web (PWA responsivo) quanto como aplicativo nativo **Android (APK)** compilado de forma automatizada via Capacitor e GitHub Actions, com foco em uma experiência rápida, moderna e **100% Offline-First**.
 
 ---
 
 ## 🚀 Funcionalidades Implementadas
 
-### 1. Tela de Login e Cadastro
-- **Salvamento Local & Nuvem (Firebase)**: Funcionamento offline-first com Dexie (IndexedDB) para garantir que você nunca perca nenhum dado de show mesmo sem conexão com a internet.
-- **Cadastro Completo**: Nome completo, CPF com validação algorítmica real (módulo 11), e-mail, senha e instrumento.
-- **Login com Google**: Conexão rápida com um toque.
-- **Modo Local / Convidado**: Acesso imediato sem fricção.
+### 1. Tela de Login e Cadastro (Segurança & Usabilidade)
+* **Controle a sua Agenda de Shows 100% Offline**: Mensagem inspiradora que reforça o propósito do aplicativo.
+* **Salvamento Local Indexado (Dexie/IndexedDB)**: O banco local garante funcionamento total em qualquer palco, pub ou estrada, sem necessidade de conexão ativa com a internet.
+* **Olho Mágico (Visualização de Senhas)**: Botões de alternância (`Eye` / `EyeOff`) implementados nos campos de senha de login, cadastro e redefinição para facilitar a digitação correta em telas menores de celulares.
+* **Mensagens de Erro Genéricas**: Em conformidade com as melhores práticas de segurança de credenciais, o sistema exibe mensagens genéricas como *"Usuário ou senha incorretos. Tente novamente."* para mitigar a enumeração e rastreamento de usuários existentes.
+* **Redirecionamento Inteligente Pós-Cadastro**: Após criar uma nova conta, o usuário é direcionado imediatamente à aba de Login com seu usuário já pré-preenchido para um acesso ágil.
 
-### 2. Dashboard do Baterista
-- **Estatísticas Financeiras em Tempo Real**:
-  - Total de shows agendados
-  - Cachê Total Previsto
-  - Cachê Recebido (com porcentagem de recebimento)
-  - Cachê Pendente a cobrar dos contratantes
-  - Quantidade de shows a realizar, finalizados e cancelados
-- **Filtros Dinâmicos**:
-  - 🔍 **Nome do Cantor / Banda**: Busca em tempo real e autocompletar
-  - 📍 **Nome do Estabelecimento / Local**: Filtro por bar, restaurante ou cerimonial
-  - 📅 **Mês e Ano**: Seleção rápida por mês e ano de apresentação
-  - 🎭 **Modalidade**: Filtro por *Particular* ou *Barzinho/Restaurante*
-  - 💰 **Status do Cachê**: Filtro rápido por *Recebido* ou *Pendente*
-  - 🎤 **Status do Show**: Filtro por *Pendente/Agendado*, *Finalizado* ou *Cancelado*
-- **Listagem de Eventos**:
-  - Cards visuais com data formatada, dia da semana e cálculo relativo ("Hoje", "Amanhã", etc.)
-  - Badges coloridos de modalidade e situação
-  - Alternância rápida de cachê recebido em 1 clique
-  - Alternância de status do show (Pendente ➔ Finalizado ➔ Cancelado)
-  - Botão de compartilhamento rápido com texto formatado pronto para enviar no WhatsApp da banda/cantor
-  - Edição e exclusão segura com confirmação
+### 2. Recuperação de Senha Interativa (Zero Chaves Temporárias)
+* **Validação de Usuário**: O fluxo agora é interativo em 2 etapas. Primeiro, o sistema valida se o nome de usuário digitado existe no banco local de dados.
+* **Redefinição Direta**: Ao localizar o usuário, o sistema exibe uma saudação personalizada e habilita instantaneamente a inserção da nova senha escolhida diretamente pelo usuário, com o recurso de olho mágico integrado e sem o uso de senhas temporárias estáticas.
 
-### 3. Cadastro e Edição de Shows (+)
-- Modal rápido acionado pelo botão flutuante **(+)** ou botão no topo:
-  - **Valor do Cachê**: Com máscara monetária em tempo real (`R$ 0,00`)
-  - **Data e Horário do Show**: Seleção de dia e hora de início
-  - **Nome do Cantor / Banda**: Com histórico inteligente de cantores
-  - **Nome do Estabelecimento / Local**: Com histórico de locais
-  - **Modalidade**: *Particular* (casamentos, festas privadas) ou *Barzinho/Restaurante*
-  - **Status do Cachê**: *Cachê Recebido* ou *Cachê Pendente*
-  - **Status do Show**: *Show Pendente*, *Finalizado* ou *Cancelado*
-  - **Observações do Baterista**: Horário de passagem de som, itens do kit de bateria, repertório, etc.
+### 3. Dashboard do Baterista & Menu Superior
+* **Saudação Dinâmica**: Substituição do texto genérico do menu por uma recepção pessoal baseada no primeiro nome do usuário logado (ex: *"Olá, José"*).
+* **Estatísticas Financeiras em Tempo Real**:
+  * Total de shows agendados
+  * Cachê Total Previsto
+  * Cachê Recebido (com percentual e barra de progresso visual)
+  * Cachê Pendente a cobrar dos contratantes
+  * Quantidade de shows a realizar, finalizados e cancelados
+* **Filtros Dinâmicos e Busca**: Filtre de forma inteligente por Nome de Cantor/Banda, Estabelecimento/Local, Mês/Ano, Modalidade (Barzinho ou Particular), Status do Cachê e Status do Show.
 
-### 4. Recuperação de Senha
-- Opção de recuperação via **CPF** ou **E-mail**.
-- Validação algorítmica oficial do CPF brasileiro.
-- Envio seguro de link e código de redefinição.
+### 4. Cadastro Inteligente de Cantores & Bandas
+* **Cadastro Dedicado**: Gerenciador que armazena os cantores ou bandas sob a conta do usuário conectado de forma organizada.
+* **Validação de Duplicidade (Case-Insensitive)**: Protege a consistência do banco de dados impedindo que nomes idênticos sejam insercidos para o mesmo baterista, mesmo variando letras maiúsculas e minúsculas.
 
-### 5. Backup & Sincronização
-- Exportação de dados para arquivo JSON de backup.
-- Importação de backup para restauração em qualquer aparelho.
+### 5. Cadastro & Edição de Shows (+)
+* Modal rápido e responsivo contendo:
+  * **Valor do Cachê**: Com máscara monetária em tempo real (`R$ 0,00`)
+  * **Data e Horário do Show**: Seletores customizados elegantes
+  * **Histórico Inteligente**: Sugestões automáticas de Cantores e Estabelecimentos cadastrados anteriormente
+  * **Observações**: Área dedicada para notas de passagens de som, kit de bateria, setlist e observações gerais.
+
+### 6. Autodescarte de Alertas em todas as Telas (Regra dos 3 Segundos)
+* Todos os alertas de aviso, erros de validação e mensagens de confirmação de sucesso em qualquer modal do aplicativo (`AuthModal`, `RecoveryModal`, `ShowModal`, `BandsModal`, `ExportSyncModal`) fecham-se de forma inteligente após exatamente **3 segundos**, mantendo a interface limpa e otimizada para o uso.
+
+### 7. Backup & Sincronização
+* **Exportação Completa**: Salve seus dados locais em um arquivo `.json` a qualquer momento.
+* **Importação Segura**: Recupere ou mude seus dados para outro dispositivo importando o backup em segundos.
 
 ---
 
-## 📱 Geração e Download do APK Android
+## 📱 Instalação e Atualização Perfeita no Celular (Padrão Oficial)
 
-O repositório está configurado com workflow do **GitHub Actions** (`.github/workflows/build-apk.yml`):
-- A cada push na branch `main`, o APK Android é automaticamente compilado utilizando o Gradle wrapper e a keystore de debug.
-- O arquivo compilado `AgendaDoBatera.apk` é publicado na aba **Releases** do GitHub para download direto e instalação em smartphones Android (ex: Moto G52).
+Para evitar qualquer falha de instalação ou conflito de pacotes (como o erro *"App não instalado"*) ao atualizar o aplicativo diretamente no telefone, o projeto segue o mesmo padrão de qualidade e assinatura consolidado em projetos oficiais do desenvolvedor:
+* **Assinatura Constante com Keystore Permanente**: Utiliza uma chave `debug.keystore` dedicada no projeto para garantir que as assinaturas dos APKs gerados de forma sequencial permaneçam idênticas e permitam atualizações diretas.
+* **Prevenção de Conflitos de Backup**: Configurado `android:allowBackup="false"` para prevenir carregamentos de cache em versões antigas e evitar erros de consistência após as atualizações.
+* **Geração Automática do APK**: O workflow do **GitHub Actions** (`.github/workflows/build-apk.yml`) compila o APK a cada alteração na branch `main` e publica o executável final `AgendaDoBatera.apk` diretamente na aba **Releases** do repositório para download instantâneo.
 
 ---
 
-## 💻 Como Rodar Localmente
+## 💻 Como Executar Localmente
 
 ```bash
-# Instalar dependências
+# 1. Instalar as dependências do projeto
 npm install
 
-# Iniciar servidor de desenvolvimento (Porta 3000)
+# 2. Iniciar o servidor de desenvolvimento local
 npm run dev
 
-# Executar testes unitários automatizados
+# 3. Rodar os testes automatizados
 npm test
 
-# Compilar para produção Web
+# 4. Compilar a build de produção Web
 npm run build
 
-# Sincronizar com Capacitor Android
+# 5. Sincronizar as alterações com o projeto Android
 npx cap sync android
 ```
