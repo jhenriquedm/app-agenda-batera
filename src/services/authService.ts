@@ -34,7 +34,7 @@ export const authService = {
     } catch {
       // Fallback
     }
-    return DEFAULT_USER;
+    return null;
   },
 
   setCurrentUser(user: UserProfile | null) {

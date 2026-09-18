@@ -232,11 +232,11 @@ export default function App() {
           </div>
 
           {/* Quick Tab Selectors */}
-          <div className="flex items-center gap-1 rounded-2xl border border-slate-300 dark:border-slate-800/80 bg-white dark:bg-slate-900/90 p-1 text-[11px] font-bold overflow-x-auto shadow-xs scrollbar-none">
+          <div className="flex items-center justify-center gap-1 mx-auto sm:mx-0 w-full sm:w-auto rounded-2xl border border-slate-300 dark:border-slate-800/80 bg-white dark:bg-slate-900/90 p-1 text-xs sm:text-sm font-bold overflow-x-auto shadow-xs scrollbar-none">
             <button
               type="button"
               onClick={() => setActiveTab('todos')}
-              className={`rounded-xl px-2.5 py-1.5 transition whitespace-nowrap ${
+              className={`rounded-xl px-3.5 py-2 sm:px-4 sm:py-2.5 transition whitespace-nowrap ${
                 activeTab === 'todos'
                   ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
                   : 'text-slate-700 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
@@ -247,7 +247,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveTab('proximos')}
-              className={`rounded-xl px-2.5 py-1.5 transition whitespace-nowrap ${
+              className={`rounded-xl px-3.5 py-2 sm:px-4 sm:py-2.5 transition whitespace-nowrap ${
                 activeTab === 'proximos'
                   ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
                   : 'text-slate-700 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
@@ -258,7 +258,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveTab('pendentes_cache')}
-              className={`rounded-xl px-2.5 py-1.5 transition whitespace-nowrap ${
+              className={`rounded-xl px-3.5 py-2 sm:px-4 sm:py-2.5 transition whitespace-nowrap ${
                 activeTab === 'pendentes_cache'
                   ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
                   : 'text-slate-700 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
@@ -269,7 +269,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveTab('concluidos')}
-              className={`rounded-xl px-2.5 py-1.5 transition whitespace-nowrap ${
+              className={`rounded-xl px-3.5 py-2 sm:px-4 sm:py-2.5 transition whitespace-nowrap ${
                 activeTab === 'concluidos'
                   ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
                   : 'text-slate-700 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
