@@ -1,0 +1,6 @@
+{
+  "name": "Agenda do Batera",
+  "description": "Aplicativo para agendamento de shows, cachês e gestão de apresentações para bateristas e músicos",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
