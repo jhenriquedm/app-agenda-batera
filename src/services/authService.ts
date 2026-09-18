@@ -1,8 +1,9 @@
 import { UserProfile } from '../types';
-import { validateCpf, unmaskCpf } from '../utils/cpfValidator';
+import { sanitizeUsername, sanitizeName } from '../utils/textSanitizer';
 
 const USER_SESSION_KEY = 'batera_agenda_session';
 const REGISTERED_USERS_KEY = 'batera_agenda_registered_users';
+const LOGGED_OUT_KEY = 'batera_agenda_logged_out';
 
 export interface AuthResponse {
   success: boolean;
@@ -10,12 +11,11 @@ export interface AuthResponse {
   user?: UserProfile;
 }
 
-// Usuário padrão inicial para teste imediato
+// Usuário padrão inicial para primeiro uso se nunca tiver deslogado
 const DEFAULT_USER: UserProfile = {
   id: 'user-batera-1',
   name: 'Henrique Baterista',
-  email: 'jhenriquedm98@gmail.com',
-  cpf: '123.456.789-00',
+  username: 'batera_henrique',
   instrument: 'Baterista',
   avatar: 'https://images.unsplash.com/photo-1519892300165-cb5542fb47c7?w=150&auto=format&fit=crop&q=80',
 };
@@ -23,6 +23,10 @@ const DEFAULT_USER: UserProfile = {
 export const authService = {
   getCurrentUser(): UserProfile | null {
     try {
+      const isLoggedOut = localStorage.getItem(LOGGED_OUT_KEY);
+      if (isLoggedOut === 'true') {
+        return null;
+      }
       const data = localStorage.getItem(USER_SESSION_KEY);
       if (data) {
         return JSON.parse(data);
@@ -30,13 +34,14 @@ export const authService = {
     } catch {
       // Fallback
     }
-    return DEFAULT_USER; // Inicia logado com perfil de exemplo para experiência imediata
+    return DEFAULT_USER;
   },
 
   setCurrentUser(user: UserProfile | null) {
     if (!user) {
       localStorage.removeItem(USER_SESSION_KEY);
     } else {
+      localStorage.removeItem(LOGGED_OUT_KEY);
       localStorage.setItem(USER_SESSION_KEY, JSON.stringify(user));
     }
   },
@@ -60,36 +65,26 @@ export const authService = {
     localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
   },
 
-  async login(emailOrCpf: string, password: string): Promise<AuthResponse> {
-    await new Promise((resolve) => setTimeout(resolve, 600));
+  async login(usernameInput: string, password: string): Promise<AuthResponse> {
+    await new Promise((resolve) => setTimeout(resolve, 400));
 
-    const cleanInput = emailOrCpf.trim().toLowerCase();
-    const cleanDigits = unmaskCpf(emailOrCpf);
+    const cleanUsername = sanitizeUsername(usernameInput.trim().toLowerCase());
+    const cleanRaw = usernameInput.trim().toLowerCase();
     const users = this.getRegisteredUsers();
 
     const user = users.find(
       (u) =>
-        u.email.toLowerCase() === cleanInput ||
-        (cleanDigits.length === 11 && unmaskCpf(u.cpf || '') === cleanDigits)
+        (u.username && u.username.toLowerCase() === cleanUsername) ||
+        (u.username && u.username.toLowerCase() === cleanRaw) ||
+        (u.email && u.email.toLowerCase() === cleanRaw)
     );
 
     if (!user) {
-      // Se for a primeira vez com credenciais válidas, permitimos login
-      if (cleanInput.includes('@') && password.length >= 4) {
-        const newUser: UserProfile = {
-          id: `user-${Date.now()}`,
-          name: cleanInput.split('@')[0],
-          email: cleanInput,
-          instrument: 'Baterista',
-        };
-        this.setCurrentUser(newUser);
-        return { success: true, user: newUser };
-      }
-      return { success: false, message: 'Usuário não encontrado. Verifique seu e-mail/CPF ou cadastre-se.' };
+      return { success: false, message: 'Usuário ou senha incorretos. Tente novamente.' };
     }
 
     if (user.passwordHash && user.passwordHash !== password && password !== '123456') {
-      return { success: false, message: 'Senha incorreta. Tente novamente ou use a recuperação de senha.' };
+      return { success: false, message: 'Usuário ou senha incorretos. Tente novamente.' };
     }
 
     this.setCurrentUser(user);
@@ -98,105 +93,94 @@ export const authService = {
 
   async register(data: {
     name: string;
-    email: string;
-    cpf: string;
+    username: string;
     password: string;
-    instrument?: string;
   }): Promise<AuthResponse> {
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
-    if (!data.name.trim()) {
-      return { success: false, message: 'Por favor, informe seu nome.' };
+    const cleanName = sanitizeName(data.name.trim()).slice(0, 50);
+    const cleanUsername = sanitizeUsername(data.username.trim().toLowerCase()).slice(0, 20);
+    const cleanPassword = data.password.slice(0, 8);
+
+    if (!cleanName) {
+      return { success: false, message: 'Por favor, informe seu nome completo (máx. 50 caracteres).' };
     }
 
-    if (!data.email.includes('@')) {
-      return { success: false, message: 'Por favor, informe um e-mail válido.' };
+    if (!cleanUsername) {
+      return { success: false, message: 'Por favor, informe um nome de usuário (máx. 20 caracteres, sem caracteres especiais).' };
     }
 
-    if (data.cpf && !validateCpf(data.cpf)) {
-      return { success: false, message: 'CPF inválido. Por favor, verifique os dígitos.' };
+    if (cleanUsername.length < 3) {
+      return { success: false, message: 'O usuário deve ter pelo menos 3 caracteres.' };
     }
 
-    if (data.password.length < 4) {
-      return { success: false, message: 'A senha deve ter pelo menos 4 caracteres.' };
+    if (!cleanPassword || cleanPassword.length < 4) {
+      return { success: false, message: 'A senha deve ter entre 4 e 8 caracteres.' };
     }
 
     const users = this.getRegisteredUsers();
     const alreadyExists = users.some(
-      (u) =>
-        u.email.toLowerCase() === data.email.toLowerCase() ||
-        (data.cpf && unmaskCpf(u.cpf || '') === unmaskCpf(data.cpf))
+      (u) => u.username && u.username.toLowerCase() === cleanUsername
     );
 
     if (alreadyExists) {
-      return { success: false, message: 'Este e-mail ou CPF já está cadastrado.' };
+      return { success: false, message: 'Este nome de usuário já está em uso. Escolha outro.' };
     }
 
     const newUser: UserProfile = {
-      id: `user-${Date.now()}`,
-      name: data.name.trim(),
-      email: data.email.trim().toLowerCase(),
-      cpf: data.cpf,
-      instrument: data.instrument?.trim() || 'Baterista',
+      id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      name: cleanName,
+      username: cleanUsername,
+      instrument: 'Baterista',
     };
 
-    users.push({ ...newUser, passwordHash: data.password });
+    users.push({ ...newUser, passwordHash: cleanPassword });
     this.saveRegisteredUsers(users);
-    this.setCurrentUser(newUser);
 
-    return { success: true, user: newUser, message: 'Cadastro realizado com sucesso!' };
+    return { success: true, user: newUser, message: 'Conta criada com sucesso!' };
   },
 
-  async loginWithGoogle(): Promise<AuthResponse> {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    const googleUser: UserProfile = {
-      id: `google-${Date.now()}`,
-      name: 'Henrique (Google Batera)',
-      email: 'jhenriquedm98@gmail.com',
-      cpf: '345.678.912-00',
-      instrument: 'Baterista Profissional',
-      avatar: 'https://lh3.googleusercontent.com/a/default-user',
-    };
-
-    this.setCurrentUser(googleUser);
-    return { success: true, user: googleUser, message: 'Conectado com o Google com sucesso!' };
-  },
-
-  async recoverPassword(cpfOrEmail: string): Promise<{ success: boolean; message: string; codeSentTo?: string }> {
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    const input = cpfOrEmail.trim();
-
+  async findUserForRecovery(usernameInput: string): Promise<{ success: boolean; message: string; username?: string; name?: string }> {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const input = usernameInput.trim().toLowerCase();
     if (!input) {
-      return { success: false, message: 'Informe seu CPF ou E-mail cadastrado.' };
+      return { success: false, message: 'Informe seu usuário cadastrado.' };
     }
-
-    const isCpf = !input.includes('@') && unmaskCpf(input).length >= 11;
-    if (isCpf && !validateCpf(input)) {
-      return { success: false, message: 'CPF informado é inválido.' };
-    }
-
-    const cleanDigits = unmaskCpf(input);
     const users = this.getRegisteredUsers();
+    const user = users.find(
+      (u) => u.username && u.username.toLowerCase() === input
+    );
+    if (!user) {
+      return { success: false, message: 'Usuário não localizado no sistema.' };
+    }
+    return { success: true, message: 'Usuário localizado!', username: user.username, name: user.name };
+  },
 
-    const user = users.find((u) => {
-      if (input.includes('@')) {
-        return u.email.toLowerCase() === input.toLowerCase();
-      }
-      return unmaskCpf(u.cpf || '') === cleanDigits;
-    });
-
-    const targetEmail = user?.email || (input.includes('@') ? input : 'seu e-mail vinculado');
-    const maskedEmail = targetEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3');
-
-    return {
-      success: true,
-      message: `Código de recuperação e link para redefinir senha foram enviados para ${maskedEmail}.`,
-      codeSentTo: maskedEmail,
-    };
+  async resetPassword(usernameInput: string, newPasswordInput: string): Promise<{ success: boolean; message: string }> {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const input = usernameInput.trim().toLowerCase();
+    const cleanPassword = newPasswordInput.slice(0, 8);
+    if (!cleanPassword || cleanPassword.length < 4) {
+      return { success: false, message: 'A nova senha deve ter entre 4 e 8 caracteres.' };
+    }
+    const users = this.getRegisteredUsers();
+    const idx = users.findIndex(
+      (u) => u.username && u.username.toLowerCase() === input
+    );
+    if (idx === -1) {
+      return { success: false, message: 'Usuário não localizado.' };
+    }
+    users[idx].passwordHash = cleanPassword;
+    this.saveRegisteredUsers(users);
+    return { success: true, message: 'Sua senha foi redefinida com sucesso!' };
   },
 
   logout() {
     this.setCurrentUser(null);
+    try {
+      localStorage.setItem(LOGGED_OUT_KEY, 'true');
+    } catch {
+      // Ignore
+    }
   },
 };

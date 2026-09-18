@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { ShowEvent, ModalityType, CacheStatusType, ShowStatusType } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { ShowEvent, ModalityType, CacheStatusType, ShowStatusType, BandArtist } from '../types';
 import { formatCurrencyInput, parseCurrencyInput } from '../utils/currencyMask';
+import { formatCleanTitleInput } from '../utils/formatters';
+import { ModernDatePicker } from './ModernDatePicker';
+import { ModernTimePicker } from './ModernTimePicker';
 import {
   X,
   Plus,
-  DollarSign,
   Calendar,
   Clock,
   Mic,
@@ -12,10 +14,13 @@ import {
   Building2,
   CheckCircle2,
   AlertCircle,
-  FileText,
   Drum,
   Save,
   Sparkles,
+  DollarSign,
+  AlertTriangle,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 
 interface ShowModalProps {
@@ -25,6 +30,9 @@ interface ShowModalProps {
   editingShow?: ShowEvent | null;
   existingSingers: string[];
   existingVenues: string[];
+  bands?: BandArtist[];
+  onOpenBandsModal?: () => void;
+  initialSinger?: { name: string; id?: string } | null;
 }
 
 export const ShowModal: React.FC<ShowModalProps> = ({
@@ -34,22 +42,74 @@ export const ShowModal: React.FC<ShowModalProps> = ({
   editingShow,
   existingSingers,
   existingVenues,
+  bands = [],
+  onOpenBandsModal,
+  initialSinger,
 }) => {
-  const [cacheInput, setCacheInput] = useState('');
+  // Ordered state:
+  // 1. Estabelecimento
+  const [venue, setVenue] = useState('');
+
+  // 2. Cantor
+  const [singerBand, setSingerBand] = useState('');
+  const [singerBandId, setSingerBandId] = useState<string | undefined>(undefined);
+
+  // 3. Modalidade
+  const [modality, setModality] = useState<ModalityType>('Barzinho/Restaurante');
+
+  // 4. Data & 5. Hora
   const [datePart, setDatePart] = useState('');
   const [timePart, setTimePart] = useState('21:00');
-  const [singerBand, setSingerBand] = useState('');
-  const [venue, setVenue] = useState('');
-  const [modality, setModality] = useState<ModalityType>('Barzinho/Restaurante');
-  const [cacheStatus, setCacheStatus] = useState<CacheStatusType>('pendente');
+
+  // 6. Status (Show, Cachê e Valor)
   const [showStatus, setShowStatus] = useState<ShowStatusType>('pendente');
+  const [cacheStatus, setCacheStatus] = useState<CacheStatusType>('pendente');
+  const [cacheInput, setCacheInput] = useState('');
+
+  // 7. Observação
   const [notes, setNotes] = useState('');
+
+  // Dropdown states & Refs
+  const [isSingerDropdownOpen, setIsSingerDropdownOpen] = useState(false);
+  const singerDropdownRef = useRef<HTMLDivElement>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  // Close singer dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        singerDropdownRef.current &&
+        !singerDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsSingerDropdownOpen(false);
+      }
+    };
+    if (isSingerDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSingerDropdownOpen]);
+
+  useEffect(() => {
     if (editingShow) {
-      setCacheInput(formatCurrencyInput(editingShow.cacheValue));
+      setVenue(editingShow.venue);
+      setSingerBand(editingShow.singerBand);
+      setSingerBandId(editingShow.singerBandId);
+      setModality(editingShow.modality);
+
       const dt = new Date(editingShow.showDate);
       if (!isNaN(dt.getTime())) {
         const year = dt.getFullYear();
@@ -63,225 +123,191 @@ export const ShowModal: React.FC<ShowModalProps> = ({
         setDatePart(new Date().toISOString().slice(0, 10));
         setTimePart('21:00');
       }
-      setSingerBand(editingShow.singerBand);
-      setVenue(editingShow.venue);
-      setModality(editingShow.modality);
+
+      setShowStatus(editingShow.showStatus || 'pendente');
       setCacheStatus(editingShow.cacheStatus);
-      setShowStatus(editingShow.showStatus);
+      setCacheInput(formatCurrencyInput(editingShow.cacheValue));
       setNotes(editingShow.notes || '');
     } else {
-      // Novo show com data padrão para o próximo fim de semana ou hoje
-      setCacheInput('');
+      setVenue('');
+      if (initialSinger) {
+        setSingerBand(initialSinger.name);
+        setSingerBandId(initialSinger.id);
+      } else if (bands.length === 1) {
+        setSingerBand(bands[0].name);
+        setSingerBandId(bands[0].id);
+      } else {
+        setSingerBand('');
+        setSingerBandId(undefined);
+      }
+      setModality('Barzinho/Restaurante');
+
       const today = new Date();
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
       setDatePart(`${year}-${month}-${day}`);
       setTimePart('21:00');
-      setSingerBand('');
-      setVenue('');
-      setModality('Barzinho/Restaurante');
-      setCacheStatus('pendente');
+
       setShowStatus('pendente');
+      setCacheStatus('pendente');
+      setCacheInput('');
       setNotes('');
     }
     setError(null);
-  }, [editingShow, isOpen]);
+  }, [editingShow, isOpen, initialSinger, bands]);
 
   if (!isOpen) return null;
 
   const handleCurrencyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCurrencyInput(e.target.value);
+    // Limita estritamente em no máximo 9 dígitos numéricos
+    const rawDigits = e.target.value.replace(/\D/g, '').slice(0, 9);
+    const num = Number(rawDigits) / 100;
+    const formatted = formatCurrencyInput(num);
     setCacheInput(formatted);
+  };
+
+  const handleSelectBandChip = (band: BandArtist) => {
+    setSingerBand(band.name);
+    setSingerBandId(band.id);
+    if (band.defaultCache && (!cacheInput || cacheInput === '0,00')) {
+      setCacheInput(formatCurrencyInput(band.defaultCache));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    const numericCache = parseCurrencyInput(cacheInput);
-    if (numericCache <= 0) {
-      setError('Informe o valor do cachê do show.');
-      return;
-    }
-
-    if (!singerBand.trim()) {
-      setError('Informe o nome do cantor ou banda.');
-      return;
-    }
-
+    // 1. Estabelecimento validation
     if (!venue.trim()) {
-      setError('Informe o nome do estabelecimento ou local.');
+      setError('Por favor, informe o Estabelecimento ou Local do show.');
       return;
     }
 
+    // 2. Cantor validation (Obrigatório e verificação se tem cadastrado)
+    if (!singerBand.trim()) {
+      setError('O nome do Cantor ou Banda é obrigatório.');
+      return;
+    }
+
+    if (bands.length === 0) {
+      setError('Nenhum cantor ou banda cadastrado no sistema. Por favor, cadastre um cantor primeiro.');
+      return;
+    }
+
+    // 4 & 5. Data e Hora validation
     if (!datePart) {
-      setError('Informe a data do show.');
+      setError('Por favor, selecione a Data do show.');
       return;
     }
 
-    const isoDateTime = `${datePart}T${timePart || '20:00'}:00`;
+    // 6. Cachê validation (Obrigatório e maior que zero)
+    const numericCache = parseCurrencyInput(cacheInput || '0');
+    if (isNaN(numericCache) || numericCache <= 0) {
+      setError('O valor do cachê é obrigatório e deve ser maior que R$ 0,00.');
+      return;
+    }
 
-    setLoading(true);
+    const isoDateTime = `${datePart}T${timePart || '21:00'}:00`;
+
+    // Match band ID if not set
+    let finalBandId = singerBandId;
+    if (!finalBandId) {
+      const match = bands.find((b) => b.name.toLowerCase() === singerBand.trim().toLowerCase());
+      if (match) finalBandId = match.id;
+    }
+
     try {
+      setLoading(true);
       await onSave(
         {
-          cacheValue: numericCache,
-          showDate: isoDateTime,
-          singerBand: singerBand.trim(),
           venue: venue.trim(),
+          singerBand: singerBand.trim(),
+          singerBandId: finalBandId,
           modality,
-          cacheStatus,
+          showDate: isoDateTime,
           showStatus,
+          cacheStatus,
+          cacheValue: numericCache,
           notes: notes.trim() || undefined,
         },
         editingShow ? editingShow.id : undefined
       );
       onClose();
     } catch (err: any) {
-      setError(err?.message || 'Erro ao salvar show.');
+      setError(err?.message || 'Erro ao salvar o show.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Find color of the currently selected singer if any
+  const selectedBandObj = bands.find(
+    (b) =>
+      (singerBandId && b.id === singerBandId) ||
+      b.name.toLowerCase().trim() === singerBand.toLowerCase().trim()
+  );
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="relative flex max-h-[92vh] w-full max-w-xl flex-col rounded-t-3xl border border-slate-800 bg-slate-900 shadow-2xl sm:rounded-3xl">
+    <div
+      id="show-modal-overlay"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-3 sm:p-4 backdrop-blur-sm overflow-y-auto"
+    >
+      <div
+        id="show-modal-container"
+        className="relative flex max-h-[94vh] w-full max-w-xl flex-col rounded-3xl overflow-hidden border border-black dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl transition my-auto"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
+        <div className="flex items-center justify-between border-b border-black dark:border-slate-800/80 px-5 sm:px-6 py-4 bg-slate-50 dark:bg-slate-950/40 rounded-t-3xl">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-black/20">
               <Drum className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-outfit text-lg font-bold text-white">
+              <h2 className="font-outfit text-lg font-bold text-slate-900 dark:text-white">
                 {editingShow ? 'Editar Show' : 'Cadastrar Novo Show'}
               </h2>
-              <p className="text-xs text-slate-400">
-                Preencha os dados do show e cachê do baterista
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Organize sua agenda e cachê de apresentação
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-black dark:border-slate-800 bg-white dark:bg-slate-900/60 text-slate-900 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-4">
+        {/* Form Body - STRICT ORDER: Estabelecimento, Cantor, Modalidade, Data, Hora, Status, Observação */}
+        <form onSubmit={handleSubmit} className="overflow-y-auto p-5 sm:p-6 space-y-4 text-left">
           {error && (
-            <div className="rounded-xl border border-red-900/50 bg-red-950/30 p-3 text-xs text-red-300">
-              {error}
+            <div className="flex items-center gap-2 rounded-xl border border-red-500 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 p-3 text-xs font-bold text-red-900 dark:text-red-300">
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+              <span>{error}</span>
             </div>
           )}
 
-          {/* 1. Valor do Cachê */}
+          {/* ESTABELECIMENTO */}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-300">
-              Valor do Cachê (R$) *
+            <label className="block text-xs font-bold text-slate-900 dark:text-slate-300 mb-1.5">
+              Estabelecimento / Local <span className="text-amber-500">*</span>
             </label>
             <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-amber-400 font-bold text-sm">
-                R$
-              </div>
+              <MapPin className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-3.5 h-4 w-4 text-slate-500" />
               <input
                 type="text"
-                inputMode="numeric"
-                value={cacheInput}
-                onChange={handleCurrencyChange}
-                placeholder="0,00"
-                required
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 py-3 pl-12 pr-4 font-outfit text-xl font-bold text-white placeholder-slate-600 transition focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-              />
-            </div>
-          </div>
-
-          {/* 2. Data e Horário do Show */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-300">
-                Data do Show *
-              </label>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                  <Calendar className="h-4 w-4" />
-                </div>
-                <input
-                  type="date"
-                  value={datePart}
-                  onChange={(e) => setDatePart(e.target.value)}
-                  required
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2.5 pl-9 pr-3 text-xs text-white transition focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-300">
-                Horário do Show
-              </label>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                  <Clock className="h-4 w-4" />
-                </div>
-                <input
-                  type="time"
-                  value={timePart}
-                  onChange={(e) => setTimePart(e.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2.5 pl-9 pr-3 text-xs text-white transition focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 3. Nome do Cantor / Banda */}
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-300">
-              Nome do Cantor / Banda *
-            </label>
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                <Mic className="h-4 w-4" />
-              </div>
-              <input
-                type="text"
-                value={singerBand}
-                onChange={(e) => setSingerBand(e.target.value)}
-                placeholder="Ex: Lucas Sertanejo, Banda Tributo Rock..."
-                list="modal-singers-list"
-                required
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2.5 pl-9 pr-3 text-xs text-white placeholder-slate-500 transition focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-              />
-              <datalist id="modal-singers-list">
-                {existingSingers.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
-            </div>
-          </div>
-
-          {/* 4. Nome do Estabelecimento / Local */}
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-300">
-              Nome do Estabelecimento / Local *
-            </label>
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                <MapPin className="h-4 w-4" />
-              </div>
-              <input
-                type="text"
+                id="show-venue-input"
                 value={venue}
-                onChange={(e) => setVenue(e.target.value)}
-                placeholder="Ex: Quintal do Espeto, Villa Country, Espaço Jardins..."
+                onChange={(e) => setVenue(formatCleanTitleInput(e.target.value, 50))}
+                maxLength={50}
+                placeholder="Ex: Bar do Alemão, Villa Country, Rancho do Serjão..."
                 list="modal-venues-list"
                 required
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2.5 pl-9 pr-3 text-xs text-white placeholder-slate-500 transition focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full h-11 rounded-xl border border-black dark:border-slate-800 bg-white dark:bg-slate-950 pl-10 pr-4 text-sm text-slate-950 dark:text-white placeholder-slate-400 transition focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
               />
               <datalist id="modal-venues-list">
                 {existingVenues.map((v) => (
@@ -291,19 +317,145 @@ export const ShowModal: React.FC<ShowModalProps> = ({
             </div>
           </div>
 
-          {/* 5. Modalidade: Particular ou Barzinho/Restaurante */}
+          {/* CANTOR (Obrigatório e com identificação de vazio) */}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-300">
-              Modalidade do Show *
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-slate-900 dark:text-slate-300">
+                Cantor ou Banda <span className="text-amber-500">*</span>
+              </label>
+              {onOpenBandsModal && (
+                <button
+                  type="button"
+                  id="btn-open-bands-from-show"
+                  onClick={onOpenBandsModal}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 transition hover:underline"
+                  title="Gerenciar Cantores e Bandas"
+                >
+                  <Plus className="h-3 w-3 stroke-[3]" />
+                  <span>Gerenciar Cantores</span>
+                </button>
+              )}
+            </div>
+
+            {/* Aviso quando não tem nenhum cadastrado */}
+            {bands.length === 0 ? (
+              <div
+                id="empty-bands-warning"
+                className="rounded-2xl border border-amber-500 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-3.5 space-y-2.5"
+              >
+                <div className="flex items-start gap-2.5 text-amber-950 dark:text-amber-300">
+                  <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5 text-amber-600" />
+                  <div className="text-xs">
+                    <p className="font-bold">Nenhum cantor ou banda cadastrado!</p>
+                    <p className="text-[11px] text-amber-900 dark:text-amber-400 mt-0.5">
+                      O nome do cantor é obrigatório e define a cor de categoria do show na sua grade. Cadastre seu primeiro cantor para prosseguir.
+                    </p>
+                  </div>
+                </div>
+                {onOpenBandsModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenBandsModal}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-black bg-amber-500 px-3 py-2 text-xs font-black text-slate-950 shadow-sm transition hover:bg-amber-400 active:scale-95"
+                  >
+                    <Plus className="h-4 w-4 stroke-[3]" />
+                    <span>Cadastrar Cantor Agora</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div ref={singerDropdownRef} className="relative">
+                {/* Dropdown Trigger */}
+                <button
+                  type="button"
+                  id="show-singer-dropdown-trigger"
+                  onClick={() => setIsSingerDropdownOpen((prev) => !prev)}
+                  className="flex w-full h-11 items-center justify-between rounded-xl border border-black dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-left transition hover:border-amber-500/60 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 truncate">
+                    {selectedBandObj ? (
+                      <>
+                        <span
+                          className="h-3.5 w-3.5 rounded-full shadow-xs shrink-0 ring-1 ring-black"
+                          style={{ backgroundColor: selectedBandObj.color }}
+                        />
+                        <span className="text-sm font-bold text-slate-950 dark:text-white truncate">
+                          {selectedBandObj.name}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="h-4 w-4 text-slate-500 shrink-0" />
+                        <span className="text-sm text-slate-500 truncate">
+                          Selecione o cantor ou banda...
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 text-slate-600 transition-transform duration-200 shrink-0 ${
+                      isSingerDropdownOpen ? 'rotate-180 text-amber-500' : ''
+                    }`}
+                  />
+                </button>
+
+                {/* Dropdown List with Scrollbar */}
+                {isSingerDropdownOpen && (
+                  <div
+                    id="show-singer-dropdown-menu"
+                    className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded-xl border border-black dark:border-slate-800 bg-white dark:bg-slate-900 p-1.5 shadow-xl space-y-0.5 divide-y divide-slate-100 dark:divide-slate-800/50"
+                  >
+                    {bands.map((b) => {
+                      const isSelected =
+                        (singerBandId && singerBandId === b.id) ||
+                        singerBand.toLowerCase().trim() === b.name.toLowerCase().trim();
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => {
+                            handleSelectBandChip(b);
+                            setIsSingerDropdownOpen(false);
+                          }}
+                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-xs transition ${
+                            isSelected
+                              ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-950 dark:text-amber-200 font-bold border border-black/30'
+                              : 'text-slate-800 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 truncate">
+                            <span
+                              className="h-3.5 w-3.5 rounded-full shadow-xs shrink-0"
+                              style={{ backgroundColor: b.color }}
+                            />
+                            <span className="truncate text-xs font-bold">{b.name}</span>
+                          </div>
+                          {isSelected && (
+                            <Check className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 ml-2" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* MODALIDADE */}
+          <div>
+            <label className="block text-xs font-bold text-slate-900 dark:text-slate-300 mb-1.5">
+              Modalidade
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
+                id="btn-modality-bar"
                 onClick={() => setModality('Barzinho/Restaurante')}
-                className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 px-3 text-xs font-semibold transition ${
+                className={`flex h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs transition ${
                   modality === 'Barzinho/Restaurante'
-                    ? 'border-blue-500 bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30'
-                    : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
+                    ? 'border-black bg-blue-500/20 text-blue-950 dark:text-blue-300 ring-1 ring-blue-500/40 font-black'
+                    : 'border-black dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold'
                 }`}
               >
                 <Building2 className="h-4 w-4" />
@@ -312,11 +464,12 @@ export const ShowModal: React.FC<ShowModalProps> = ({
 
               <button
                 type="button"
+                id="btn-modality-particular"
                 onClick={() => setModality('Particular')}
-                className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 px-3 text-xs font-semibold transition ${
+                className={`flex h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs transition ${
                   modality === 'Particular'
-                    ? 'border-purple-500 bg-purple-500/15 text-purple-300 ring-1 ring-purple-500/30'
-                    : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
+                    ? 'border-black bg-purple-500/20 text-purple-950 dark:text-purple-300 ring-1 ring-purple-500/40 font-black'
+                    : 'border-black dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold'
                 }`}
               >
                 <Sparkles className="h-4 w-4" />
@@ -325,119 +478,178 @@ export const ShowModal: React.FC<ShowModalProps> = ({
             </div>
           </div>
 
-          {/* 3.1 Status: Cachê recebido/pendente & Show finalizado/pendente/cancelado */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              3.1 Status da Apresentação
-            </h4>
-
-            {/* Status do Cachê */}
+          {/* DATA & HORA */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* Data */}
             <div>
-              <span className="text-[11px] font-medium text-slate-400 mb-1.5 block">
-                Status do Cachê
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCacheStatus('pendente')}
-                  className={`flex items-center justify-center gap-2 rounded-xl border py-2 text-xs font-semibold transition ${
-                    cacheStatus === 'pendente'
-                      ? 'border-amber-500 bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30'
-                      : 'border-slate-800 bg-slate-900 text-slate-400'
-                  }`}
-                >
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  <span>Cachê Pendente</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setCacheStatus('recebido')}
-                  className={`flex items-center justify-center gap-2 rounded-xl border py-2 text-xs font-semibold transition ${
-                    cacheStatus === 'recebido'
-                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30'
-                      : 'border-slate-800 bg-slate-900 text-slate-400'
-                  }`}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>Cachê Recebido</span>
-                </button>
-              </div>
+              <label className="block text-xs font-bold text-slate-900 dark:text-slate-300 mb-1.5">
+                Data do Show <span className="text-amber-500">*</span>
+              </label>
+              <ModernDatePicker
+                value={datePart}
+                onChange={setDatePart}
+                required
+              />
             </div>
+
+            {/* Hora */}
+            <div>
+              <label className="block text-xs font-bold text-slate-900 dark:text-slate-300 mb-1.5">
+                Horário do Show
+              </label>
+              <ModernTimePicker
+                value={timePart}
+                onChange={setTimePart}
+              />
+            </div>
+          </div>
+
+          {/* STATUS & CACHÊ */}
+          <div className="rounded-2xl border border-black dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950/40 p-4 space-y-3.5">
+            <label className="block text-xs font-black text-slate-950 dark:text-slate-300">
+              Status & Cachê
+            </label>
 
             {/* Status do Show */}
             <div>
-              <span className="text-[11px] font-medium text-slate-400 mb-1.5 block">
-                Status do Show
+              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-400 mb-1.5 block">
+                Status da Apresentação
               </span>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
+                  id="btn-status-agendado"
                   onClick={() => setShowStatus('pendente')}
-                  className={`rounded-xl border py-2 text-xs font-semibold transition ${
+                  className={`h-10 rounded-xl border text-xs transition ${
                     showStatus === 'pendente'
-                      ? 'border-sky-500 bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30'
-                      : 'border-slate-800 bg-slate-900 text-slate-400'
+                      ? 'border-black bg-sky-500/20 text-sky-950 dark:text-sky-300 ring-1 ring-sky-500/40 font-black'
+                      : 'border-black dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-400 font-semibold'
                   }`}
                 >
-                  Pendente
+                  Agendado
                 </button>
 
                 <button
                   type="button"
+                  id="btn-status-realizado"
                   onClick={() => setShowStatus('finalizado')}
-                  className={`rounded-xl border py-2 text-xs font-semibold transition ${
+                  className={`h-10 rounded-xl border text-xs transition ${
                     showStatus === 'finalizado'
-                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30'
-                      : 'border-slate-800 bg-slate-900 text-slate-400'
+                      ? 'border-black bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 ring-1 ring-emerald-500/40 font-black'
+                      : 'border-black dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-400 font-semibold'
                   }`}
                 >
-                  Finalizado
+                  Realizado
                 </button>
 
                 <button
                   type="button"
+                  id="btn-status-cancelado"
                   onClick={() => setShowStatus('cancelado')}
-                  className={`rounded-xl border py-2 text-xs font-semibold transition ${
+                  className={`h-10 rounded-xl border text-xs transition ${
                     showStatus === 'cancelado'
-                      ? 'border-red-500 bg-red-500/15 text-red-300 ring-1 ring-red-500/30'
-                      : 'border-slate-800 bg-slate-900 text-slate-400'
+                      ? 'border-black bg-red-500/20 text-red-950 dark:text-red-300 ring-1 ring-red-500/40 font-black'
+                      : 'border-black dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-400 font-semibold'
                   }`}
                 >
                   Cancelado
                 </button>
               </div>
             </div>
+
+            {/* Status do Cachê e Valor em Linha/Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-black/20 dark:border-slate-800/60">
+              {/* Status do Cachê */}
+              <div>
+                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-400 mb-1.5 block">
+                  Pagamento do Cachê
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    id="btn-cache-pendente"
+                    onClick={() => setCacheStatus('pendente')}
+                    className={`h-10 flex items-center justify-center gap-1.5 rounded-xl border text-xs transition ${
+                      cacheStatus === 'pendente'
+                        ? 'border-black bg-amber-500/25 text-amber-950 dark:text-amber-300 ring-1 ring-amber-500/40 font-black'
+                        : 'border-black dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-400 font-semibold'
+                    }`}
+                  >
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    <span>Pendente</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    id="btn-cache-recebido"
+                    onClick={() => setCacheStatus('recebido')}
+                    className={`h-10 flex items-center justify-center gap-1.5 rounded-xl border text-xs transition ${
+                      cacheStatus === 'recebido'
+                        ? 'border-black bg-emerald-500/25 text-emerald-950 dark:text-emerald-300 ring-1 ring-emerald-500/40 font-black'
+                        : 'border-black dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-400 font-semibold'
+                    }`}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Recebido</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Valor do Cachê */}
+              <div>
+                <span className="text-[11px] font-bold text-slate-900 dark:text-slate-300 mb-1.5 block">
+                  Valor do Cachê (R$) <span className="text-amber-500">*</span>
+                </span>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-3 flex items-center text-xs font-black text-amber-700 dark:text-amber-400">
+                    R$
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    id="show-cache-input"
+                    value={cacheInput}
+                    onChange={handleCurrencyChange}
+                    maxLength={13}
+                    placeholder="0,00"
+                    required
+                    className="w-full h-10 rounded-xl border border-black dark:border-slate-800 bg-white dark:bg-slate-900 pl-9 pr-3 text-sm font-black text-slate-950 dark:text-white placeholder-slate-400 transition focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Observações / Passagem de Som */}
+          {/* OBSERVAÇÃO */}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-300">
-              Observações do Baterista (Opcional)
+            <label className="block text-xs font-bold text-slate-900 dark:text-slate-300 mb-1.5">
+              Observação (Opcional)
             </label>
             <textarea
               rows={2}
+              id="show-notes-input"
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ex: Passagem de som às 18h, levar pratos e ferragens, repertório sertanejo atualizado..."
-              className="w-full rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs text-white placeholder-slate-600 transition focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              onChange={(e) => setNotes(e.target.value.replace(/[<>{}%$&@\\^~+=|;"'`]/g, ''))}
+              placeholder="Ex: Levar pratos e ferragens; passagem de som às 19h; setlist especial..."
+              className="w-full rounded-xl border border-black dark:border-slate-800 bg-white dark:bg-slate-950 p-3 text-xs text-slate-950 dark:text-white placeholder-slate-400 transition focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none font-medium"
             />
           </div>
 
-          {/* Submit Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          {/* Form Actions Footer */}
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-black/20 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="rounded-xl border border-slate-800 px-4 py-2.5 text-xs font-semibold text-slate-400 transition hover:bg-slate-800 hover:text-white"
+              className="rounded-xl border border-black dark:border-slate-800 bg-white dark:bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-950 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
+              id="btn-submit-show"
               disabled={loading}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-xs font-bold text-slate-950 shadow-lg shadow-amber-500/25 transition hover:from-amber-400 hover:to-amber-500 active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl border border-black bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-xs font-black text-slate-950 shadow-md shadow-amber-500/20 hover:from-amber-400 hover:to-amber-500 active:scale-95 transition disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
               <span>{loading ? 'Salvando...' : editingShow ? 'Atualizar Show' : 'Salvar Show'}</span>

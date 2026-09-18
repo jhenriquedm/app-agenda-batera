@@ -67,3 +67,17 @@ export function getMonthYearKey(dateStr: string): { month: number; year: number 
     year: d.getFullYear(),
   };
 }
+
+/**
+ * Sanitiza campos de texto:
+ * - Remove caracteres especiais (permite letras, números, acentos e espaços)
+ * - Garante que a primeira letra de cada palavra seja maiúscula
+ * - Limita o tamanho máximo (padrão: 50 caracteres)
+ */
+export function formatCleanTitleInput(value: string, maxLength: number = 50): string {
+  if (!value) return '';
+  // Remove caracteres especiais exceto letras, números, acentuação e espaços
+  const stripped = value.replace(/[^a-zA-Z0-9À-ÿ\s]/g, '').slice(0, maxLength);
+  // Converte a primeira letra de cada palavra em maiúscula
+  return stripped.replace(/(?:^|\s)\S/g, (char) => char.toUpperCase());
+}

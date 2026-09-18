@@ -1,22 +1,16 @@
 import React, { useState } from 'react';
-import { ShowEvent } from '../types';
+import { ShowEvent, BandArtist } from '../types';
 import { formatBRL } from '../utils/currencyMask';
 import { formatDateTime } from '../utils/formatters';
 import {
-  Calendar,
   Clock,
   MapPin,
   Mic,
-  DollarSign,
   CheckCircle2,
-  AlertCircle,
-  MoreVertical,
   Edit2,
   Trash2,
-  Share2,
-  Check,
   Building2,
-  Sparkles,
+  MoreVertical,
 } from 'lucide-react';
 
 interface ShowCardProps {
@@ -25,6 +19,7 @@ interface ShowCardProps {
   onDelete: (show: ShowEvent) => void;
   onToggleCache: (id: string, current: 'recebido' | 'pendente') => void;
   onCycleShowStatus: (id: string, current: 'pendente' | 'finalizado' | 'cancelado') => void;
+  band?: BandArtist;
 }
 
 export const ShowCard: React.FC<ShowCardProps> = ({
@@ -33,187 +28,208 @@ export const ShowCard: React.FC<ShowCardProps> = ({
   onDelete,
   onToggleCache,
   onCycleShowStatus,
+  band,
 }) => {
-  const [copied, setCopied] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const dateTime = formatDateTime(show.showDate);
-
   const isCacheReceived = show.cacheStatus === 'recebido';
 
-  const copyShowDetails = async () => {
-    const text = `🥁 *Show: ${show.singerBand}*\n📅 Data: ${dateTime.dateFormatted} às ${dateTime.timeFormatted} (${dateTime.dayOfWeek})\n📍 Local: ${show.venue}\n🎭 Modalidade: ${show.modality}\n💰 Cachê: ${formatBRL(show.cacheValue)} (${isCacheReceived ? 'RECEBIDO ✅' : 'PENDENTE ⏳'})${show.notes ? `\n📝 Obs: ${show.notes}` : ''}`;
-
-    try {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
-    } catch {
-      // Fallback
-    }
-  };
+  const dateObj = new Date(show.showDate);
+  const dayNumber = isNaN(dateObj.getTime()) ? '--' : String(dateObj.getDate()).padStart(2, '0');
+  const monthShort = isNaN(dateObj.getTime())
+    ? ''
+    : dateObj.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-2xl border transition-all duration-200 ${
+      id={`show-card-${show.id}`}
+      className={`group relative rounded-2xl border transition-all duration-200 p-3 sm:p-3.5 shadow-xs ${
         show.showStatus === 'cancelado'
-          ? 'border-slate-800/80 bg-slate-950/40 opacity-70'
+          ? 'bg-slate-100/80 dark:bg-slate-900/40 border-black dark:border-slate-800/80 opacity-70'
           : show.showStatus === 'finalizado'
-          ? 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
-          : 'border-slate-800 bg-slate-900/90 shadow-md hover:border-amber-500/30 hover:bg-slate-900'
+          ? 'bg-white dark:bg-slate-900/70 border-black dark:border-slate-800 hover:border-black/70 dark:hover:border-slate-700'
+          : 'bg-white dark:bg-slate-900 border-black dark:border-slate-800 hover:border-amber-500/80 dark:hover:border-amber-500/50'
       }`}
     >
-      {/* Top Bar / Status & Modality */}
-      <div className="flex items-center justify-between border-b border-slate-800/60 px-4 py-2.5 text-xs">
-        <div className="flex items-center gap-2">
-          {/* Modality Badge */}
-          <span
-            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-              show.modality === 'Particular'
-                ? 'bg-purple-500/15 text-purple-300 ring-1 ring-purple-500/30'
-                : 'bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30'
+      {/* Top Header: Data / Status / Menu Kebab Vertical */}
+      <div className="flex items-start justify-between gap-2.5 mb-2">
+        {/* Bloco de Data Compacto e Elegante */}
+        <div className="flex items-center gap-2.5">
+          <div className="flex flex-col items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800/90 px-2.5 py-1 min-w-[44px] border border-black dark:border-slate-700/60 shadow-xs">
+            <span className="font-outfit text-sm sm:text-base font-black leading-none text-slate-950 dark:text-white">
+              {dayNumber}
+            </span>
+            <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-400 mt-0.5">
+              {monthShort}
+            </span>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-1.5 text-xs text-slate-800 dark:text-slate-300 font-bold">
+              <span>{dateTime.dayOfWeek}</span>
+              <span>•</span>
+              <span className="flex items-center gap-1 text-slate-950 dark:text-slate-200 font-extrabold">
+                <Clock className="h-3 w-3 text-slate-600 dark:text-slate-400" />
+                {dateTime.timeFormatted}
+              </span>
+              {dateTime.relative && (
+                <span className="rounded-full bg-amber-500/20 px-1.5 py-0.2 text-[9px] font-extrabold text-amber-900 dark:text-amber-400 border border-black/30 dark:border-amber-500/30 ml-0.5">
+                  {dateTime.relative}
+                </span>
+              )}
+            </div>
+            <div className="text-[10px] text-slate-700 dark:text-slate-400 font-semibold flex items-center gap-1 mt-0.5">
+              <Building2 className="h-2.5 w-2.5 text-slate-600" />
+              <span>{show.modality}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Status do Show e Menu Kebab Vertical em Evidência */}
+        <div className="flex items-center gap-1.5 relative">
+          <button
+            type="button"
+            id={`btn-cycle-status-${show.id}`}
+            onClick={() => onCycleShowStatus(show.id, show.showStatus)}
+            title="Alternar status: Pendente / Realizado / Cancelado"
+            className={`rounded-full px-2 py-0.5 text-[10px] font-bold transition active:scale-95 shadow-xs border border-black dark:border-transparent ${
+              show.showStatus === 'finalizado'
+                ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 ring-1 ring-emerald-500/40'
+                : show.showStatus === 'cancelado'
+                ? 'bg-red-100 dark:bg-red-500/20 text-red-950 dark:text-red-300 ring-1 ring-red-500/40'
+                : 'bg-sky-100 dark:bg-sky-500/20 text-sky-950 dark:text-sky-300 ring-1 ring-sky-500/40'
             }`}
           >
-            <Building2 className="h-3 w-3" />
-            {show.modality}
-          </span>
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-current mr-1 align-middle"></span>
+            <span className="capitalize">
+              {show.showStatus === 'finalizado'
+                ? 'Realizado'
+                : show.showStatus === 'cancelado'
+                ? 'Cancelado'
+                : 'Agendado'}
+            </span>
+          </button>
 
-          {/* Date relative indicator */}
-          {dateTime.relative && (
-            <span className="rounded-md bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-400 ring-1 ring-amber-500/30">
-              {dateTime.relative}
+          {/* Botão de Menu Kebab Vertical Destacado */}
+          <div className="relative">
+            <button
+              type="button"
+              id={`btn-menu-${show.id}`}
+              onClick={() => setShowMenu(!showMenu)}
+              className="flex h-8 w-8 items-center justify-center rounded-xl border border-black dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-amber-500/10 transition shadow-xs"
+              title="Opções do show"
+            >
+              <MoreVertical className="h-4 w-4 stroke-[2.4]" />
+            </button>
+
+            {showMenu && (
+              <div
+                className="absolute right-0 top-9 z-20 w-40 rounded-xl border border-black dark:border-slate-800 bg-white dark:bg-slate-950 p-1.5 shadow-xl text-xs"
+                onMouseLeave={() => setShowMenu(false)}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false);
+                    onEdit(show);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-slate-900 dark:text-slate-200 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left"
+                >
+                  <Edit2 className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+                  <span>Editar Detalhes</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false);
+                    onDelete(show);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-red-700 dark:text-red-400 font-bold hover:bg-red-50 dark:hover:bg-red-950/40 transition text-left"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                  <span>Excluir Show</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Conteúdo Central: Estabelecimento/Local e Cantor/Banda Compactos */}
+      <div className="space-y-1.5 my-1.5">
+        <h3 className="font-outfit text-sm sm:text-base font-extrabold tracking-tight text-slate-950 dark:text-white flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500 shrink-0" />
+          <span className="truncate">{show.venue}</span>
+        </h3>
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 bg-slate-100 dark:bg-slate-800/90 border border-black dark:border-slate-700/60 text-xs font-bold">
+            <span
+              className="h-2.5 w-2.5 rounded-full shrink-0 shadow-xs"
+              style={{ backgroundColor: band?.color || '#f59e0b' }}
+              title={band?.genre ? `${band.name} (${band.genre})` : show.singerBand}
+            />
+            <Mic className="h-3 w-3 text-slate-600 shrink-0" />
+            <span className="text-slate-950 dark:text-slate-100 truncate max-w-[170px]">
+              {show.singerBand}
+            </span>
+          </div>
+
+          {band?.genre && (
+            <span
+              className="rounded-md px-1.5 py-0.2 text-[9px] font-bold border border-black/20"
+              style={{
+                backgroundColor: `${band.color}20`,
+                color: band.color,
+              }}
+            >
+              {band.genre}
             </span>
           )}
         </div>
 
-        {/* Show Status Badge (Interactive) */}
-        <button
-          type="button"
-          onClick={() => onCycleShowStatus(show.id, show.showStatus)}
-          title="Clique para alternar status do show (Pendente / Finalizado / Cancelado)"
-          className={`group/status flex items-center gap-1.5 rounded-lg px-2.5 py-0.5 text-[11px] font-semibold transition ${
-            show.showStatus === 'finalizado'
-              ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30 hover:bg-emerald-500/25'
-              : show.showStatus === 'cancelado'
-              ? 'bg-red-500/15 text-red-300 ring-1 ring-red-500/30 hover:bg-red-500/25'
-              : 'bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30 hover:bg-sky-500/25'
-          }`}
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-current"></span>
-          <span className="capitalize">
-            {show.showStatus === 'finalizado'
-              ? 'Finalizado'
-              : show.showStatus === 'cancelado'
-              ? 'Cancelado'
-              : 'Pendente'}
-          </span>
-        </button>
+        {show.notes && (
+          <p className="text-[11px] text-slate-700 dark:text-slate-400 italic line-clamp-1 pt-0.5 font-medium">
+            "{show.notes}"
+          </p>
+        )}
       </div>
 
-      {/* Main Content */}
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          {/* Singer & Venue Info */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
-                <Mic className="h-4 w-4" />
-              </div>
-              <h3 className="font-outfit text-base font-bold tracking-tight text-white sm:text-lg">
-                {show.singerBand}
-              </h3>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
-              <div className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 text-slate-500" />
-                <span className="font-medium text-slate-300">{show.venue}</span>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-amber-400/80" />
-                <span className="text-slate-300">
-                  {dateTime.dayOfWeek}, {dateTime.dateFormatted}
-                </span>
-                <Clock className="ml-1 h-3.5 w-3.5 text-slate-500" />
-                <span className="font-medium text-amber-300">{dateTime.timeFormatted}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Share and Menu */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={copyShowDetails}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-950 text-slate-400 transition hover:border-amber-500/40 hover:text-amber-400"
-              title="Copiar informações do show para WhatsApp"
-            >
-              {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => onEdit(show)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-950 text-slate-400 transition hover:border-slate-700 hover:text-white"
-              title="Editar Show"
-            >
-              <Edit2 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(show)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-950 text-slate-400 transition hover:border-red-900/50 hover:bg-red-950/20 hover:text-red-400"
-              title="Excluir Show"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
+      {/* Rodapé do Card: Valor do Cachê e Badge de Pagamento */}
+      <div className="mt-2.5 pt-2 border-t border-black/20 dark:border-slate-800/80 flex items-center justify-between">
+        <div>
+          <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+            Cachê
+          </span>
+          <div className="font-outfit text-base sm:text-lg font-black tracking-tight text-slate-950 dark:text-white">
+            {formatBRL(show.cacheValue)}
           </div>
         </div>
 
-        {/* Notes if present */}
-        {show.notes && (
-          <div className="mt-3 rounded-xl bg-slate-950/60 px-3 py-2 text-xs text-slate-400 ring-1 ring-slate-800/80">
-            <span className="font-semibold text-slate-300">Obs do Batera: </span>
-            {show.notes}
-          </div>
-        )}
-
-        {/* Bottom Cache Value & Cache Status Toggle */}
-        <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-950/70 p-3">
-          <div>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Valor do Cachê
-            </span>
-            <div className="font-outfit text-lg font-extrabold tracking-tight text-white sm:text-xl">
-              {formatBRL(show.cacheValue)}
-            </div>
-          </div>
-
-          {/* Interactive Cache Toggle Button */}
-          <button
-            type="button"
-            onClick={() => onToggleCache(show.id, show.cacheStatus)}
-            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition active:scale-95 ${
-              isCacheReceived
-                ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/40 hover:bg-emerald-500/25'
-                : 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40 hover:bg-amber-500/25'
-            }`}
-            title="Toque para alternar entre Cachê Recebido e Pendente"
-          >
-            {isCacheReceived ? (
-              <>
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                <span>Cachê Recebido</span>
-              </>
-            ) : (
-              <>
-                <AlertCircle className="h-4 w-4 text-amber-400" />
-                <span>Cachê Pendente</span>
-              </>
-            )}
-          </button>
-        </div>
+        {/* Botão de Alternar Cachê */}
+        <button
+          type="button"
+          id={`btn-toggle-cache-${show.id}`}
+          onClick={() => onToggleCache(show.id, show.cacheStatus)}
+          title="Toque para alternar: Recebido / A receber"
+          className={`flex items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-black transition active:scale-95 shadow-xs border border-black dark:border-transparent ${
+            isCacheReceived
+              ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 ring-1 ring-emerald-500/40 hover:bg-emerald-200 dark:hover:bg-emerald-500/30'
+              : 'bg-amber-100 dark:bg-amber-500/20 text-amber-950 dark:text-amber-300 ring-1 ring-amber-500/40 hover:bg-amber-200 dark:hover:bg-amber-500/30'
+          }`}
+        >
+          {isCacheReceived ? (
+            <>
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" />
+              <span>Recebido</span>
+            </>
+          ) : (
+            <>
+              <Clock className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
+              <span>A Receber</span>
+            </>
+          )}
+        </button>
       </div>
     </div>
   );

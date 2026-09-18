@@ -43,6 +43,12 @@ describe('Máscara e Parser Monetário BRL', () => {
     const formatted = formatBRL(500);
     expect(formatted).toContain('500,00');
   });
+
+  it('deve limitar a entrada em no máximo 9 dígitos numéricos', () => {
+    // 12 dígitos devem ser cortados para 9 dígitos (ex: 123456789)
+    const result = formatCurrencyInput('123456789999');
+    expect(result).toBe('1.234.567,89');
+  });
 });
 
 describe('Serviço de Gestão e Filtro de Shows', () => {
@@ -85,15 +91,39 @@ describe('Serviço de Gestão e Filtro de Shows', () => {
     },
   ];
 
-  it('deve calcular estatísticas financeiras corretamente desconsiderando shows cancelados', () => {
+  it('deve calcular estatísticas financeiras corretamente desconsiderando shows cancelados pendentes', () => {
     const stats = showService.calculateStats(mockShows);
     expect(stats.totalShows).toBe(3);
-    expect(stats.totalCacheExpected).toBe(1200); // 400 + 800 (cancelado não conta)
+    expect(stats.totalCacheExpected).toBe(1200); // 400 + 800 (cancelado e pendente não conta)
     expect(stats.totalCacheReceived).toBe(400);
     expect(stats.totalCachePending).toBe(800);
     expect(stats.finishedShows).toBe(1);
     expect(stats.pendingShows).toBe(1);
     expect(stats.canceledShows).toBe(1);
+  });
+
+  it('deve somar o cachê de show cancelado caso a situação do cachê seja recebido', () => {
+    const showsComCanceladoRecebido: ShowEvent[] = [
+      ...mockShows,
+      {
+        id: '4',
+        cacheValue: 250,
+        showDate: '2026-10-25T20:00',
+        singerBand: 'Samba Bom',
+        venue: 'Boteco',
+        modality: 'Barzinho/Restaurante',
+        cacheStatus: 'recebido',
+        showStatus: 'cancelado',
+        createdAt: '',
+        updatedAt: '',
+      },
+    ];
+    const stats = showService.calculateStats(showsComCanceladoRecebido);
+    expect(stats.totalShows).toBe(4);
+    expect(stats.totalCacheExpected).toBe(1450); // 1200 + 250
+    expect(stats.totalCacheReceived).toBe(650); // 400 + 250
+    expect(stats.totalCachePending).toBe(800); // permanece 800
+    expect(stats.canceledShows).toBe(2);
   });
 
   it('deve filtrar shows por nome do cantor', () => {

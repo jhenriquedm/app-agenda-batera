@@ -10,7 +10,8 @@ export const formatCurrencyInput = (raw: string | number): string => {
   const digits = (raw || '').replace(/\D/g, '');
   if (!digits) return '';
 
-  const trimmedDigits = digits.slice(0, 11);
+  // Limita o valor a no máximo 9 dígitos
+  const trimmedDigits = digits.slice(0, 9);
   const cents = parseInt(trimmedDigits, 10);
   const value = cents / 100;
   return value.toLocaleString('pt-BR', {

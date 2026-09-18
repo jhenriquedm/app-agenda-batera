@@ -2,20 +2,34 @@ import { db } from '../db/localDatabase';
 import { ShowEvent, ShowFilters, ShowStats } from '../types';
 
 export const showService = {
-  async getAllShows(): Promise<ShowEvent[]> {
+  async getAllShows(userId?: string): Promise<ShowEvent[]> {
     try {
-      const list = await db.shows.toArray();
+      // Se não há usuário logado, não expor dados de nenhum usuário
+      if (!userId) {
+        return [];
+      }
+
+      const list = await db.shows.where('userId').equals(userId).toArray();
       // Ordenar por data mais recente / próximos shows primeiro
       return list.sort((a, b) => new Date(a.showDate).getTime() - new Date(b.showDate).getTime());
     } catch (err) {
       console.error('Erro ao obter shows do banco local:', err);
-      return [];
+      // Fallback para filtro em memória caso o índice esteja sendo construído
+      try {
+        if (!userId) return [];
+        const all = await db.shows.toArray();
+        const filtered = all.filter((s) => s.userId === userId);
+        return filtered.sort((a, b) => new Date(a.showDate).getTime() - new Date(b.showDate).getTime());
+      } catch {
+        return [];
+      }
     }
   },
 
-  async addShow(show: Omit<ShowEvent, 'id' | 'createdAt' | 'updatedAt'>): Promise<ShowEvent> {
+  async addShow(show: Omit<ShowEvent, 'id' | 'createdAt' | 'updatedAt'>, userId?: string): Promise<ShowEvent> {
     const newShow: ShowEvent = {
       ...show,
+      userId: userId || show.userId,
       id: `show-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -60,9 +74,13 @@ export const showService = {
     let canceledShows = 0;
 
     for (const s of shows) {
-      // Shows cancelados não somam no cachê previsto/recebido
       if (s.showStatus === 'cancelado') {
         canceledShows++;
+        // Show cancelado deve ser considerado na soma desde que o status do cachê seja 'recebido'
+        if (s.cacheStatus === 'recebido') {
+          totalCacheReceived += s.cacheValue || 0;
+          totalCacheExpected += s.cacheValue || 0;
+        }
         continue;
       }
 
