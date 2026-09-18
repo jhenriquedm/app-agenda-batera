@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Background Amber -->
+  <rect width="512" height="512" rx="108" fill="#F59E0B" />
+  
+  <g fill="none" stroke="#000000" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Left Drumstick -->
+    <path d="M 130 95 L 246 220" />
+    <circle cx="246" cy="220" r="10" fill="#000000" stroke="none" />
+    
+    <!-- Right Drumstick -->
+    <path d="M 382 95 L 266 220" />
+    <circle cx="266" cy="220" r="10" fill="#000000" stroke="none" />
+    
+    <!-- Drum Shell Body Fill (Amber) -->
+    <path d="M 96 230 C 96 230 96 345 96 345 C 96 395 416 395 416 345 L 416 230" fill="#F59E0B" stroke="#000000" stroke-width="32" />
+    
+    <!-- Vertical Tension Rods -->
+    <line x1="150" y1="250" x2="150" y2="368" />
+    <line x1="203" y1="258" x2="203" y2="378" />
+    <line x1="256" y1="260" x2="256" y2="380" />
+    <line x1="309" y1="258" x2="309" y2="378" />
+    <line x1="362" y1="250" x2="362" y2="368" />
+    
+    <!-- Top Drum Head (Ellipse) -->
+    <ellipse cx="256" cy="230" rx="160" ry="52" fill="#F59E0B" stroke="#000000" stroke-width="32" />
+  </g>
+</svg>

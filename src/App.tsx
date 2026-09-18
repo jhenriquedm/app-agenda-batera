@@ -14,6 +14,8 @@ import { AuthModal } from './components/AuthModal';
 import { RecoveryModal } from './components/RecoveryModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { ExportSyncModal } from './components/ExportSyncModal';
+import { StartupSplash } from './components/StartupSplash';
+import { DrumAppIcon } from './components/DrumAppIcon';
 import { APP_VERSION } from './version';
 import {
   Drum,
@@ -24,6 +26,7 @@ import {
 } from 'lucide-react';
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [shows, setShows] = useState<ShowEvent[]>([]);
   const [bands, setBands] = useState<BandArtist[]>([]);
@@ -203,6 +206,9 @@ export default function App() {
   // Inner Application Layout Content (reusable inside Simulator or Full Page)
   const renderAppContent = () => (
     <div className="flex flex-col min-h-screen bg-slate-100/80 dark:bg-slate-950 font-sans text-slate-950 dark:text-slate-100 transition-colors duration-200">
+      {/* Startup Presentation Splash */}
+      {showSplash && <StartupSplash onFinish={() => setShowSplash(false)} />}
+
       {/* 1. Header */}
       <Header
         user={user}
@@ -317,8 +323,8 @@ export default function App() {
           ) : shows.length === 0 ? (
             /* Estado Zerado Inicial */
             <div className="flex flex-col items-center justify-center rounded-2xl sm:rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900/40 py-12 px-4 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/20 mb-3">
-                <Drum className="h-7 w-7" />
+              <div className="flex items-center justify-center mb-3">
+                <DrumAppIcon size="lg" rounded="rounded-2xl" className="border border-black/80 shadow-md" />
               </div>
               <h4 className="font-outfit text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                 Sua agenda está zerada e pronta!

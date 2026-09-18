@@ -1,7 +1,7 @@
 import React from 'react';
 import { UserProfile } from '../types';
+import { DrumAppIcon } from './DrumAppIcon';
 import {
-  Drum,
   LogOut,
   User,
   Mic,
@@ -33,9 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="mx-auto flex max-w-6xl items-center justify-between px-3 py-2 sm:px-6 sm:py-3 gap-2">
         {/* Brand / Logo */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink min-w-0">
-          <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20 ring-2 ring-amber-400/30 shrink-0">
-            <Drum className="h-4 w-4 sm:h-5 sm:w-5 stroke-[2.2]" />
-          </div>
+          <DrumAppIcon size="sm" rounded="rounded-xl" className="border border-black/60 shadow-xs shrink-0" />
           <h1 className="font-outfit text-sm sm:text-lg md:text-xl font-black tracking-tight text-slate-950 dark:text-white truncate">
             {user ? `Olá, ${user.name.trim().split(' ')[0]}` : 'Agenda do Batera'}
           </h1>

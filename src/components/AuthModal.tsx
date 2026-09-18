@@ -3,11 +3,11 @@ import { authService } from '../services/authService';
 import { UserProfile } from '../types';
 import { sanitizeUsername, sanitizeName } from '../utils/textSanitizer';
 import { APP_VERSION } from '../version';
+import { DrumAppIcon } from './DrumAppIcon';
 import {
   X,
   User,
   Lock,
-  Drum,
   ArrowRight,
   CheckCircle2,
   AlertCircle,
@@ -376,8 +376,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       {/* Brand Header */}
       <div className="flex flex-col items-center text-center mb-6">
         {/* Elegant Centered Icon with gorgeous shadow/glow */}
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500 text-slate-950 shadow-[0_4px_20px_rgba(245,158,11,0.25)] border border-black dark:border-amber-400/30 transition-transform hover:scale-105">
-          <Drum className="h-8 w-8 animate-bounce" />
+        <div className="relative group transition-transform hover:scale-105">
+          <div className="absolute -inset-2 rounded-3xl bg-amber-500/30 blur-lg" />
+          <DrumAppIcon size="xl" rounded="rounded-2xl" className="border-2 border-black dark:border-amber-400/40 relative shadow-xl" />
         </div>
         
         {/* Title */}
